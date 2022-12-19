@@ -5,6 +5,9 @@
         <h1 class="h3 mb-0 text-gray-800">Create Product</h1>
     </div>
     <div id="app">
-        <create-product :variants="{{ $variants }}">Loading</create-product>
+    	@php
+        $url = json_encode(['url'=>url('/')]);
+        @endphp
+        <create-product :base_url="{{$url}}" :variants="{{ $variants }}">Loading</create-product>
     </div>
 @endsection

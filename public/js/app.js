@@ -2012,6 +2012,8 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
+//
 
 
 
@@ -2021,6 +2023,10 @@ __webpack_require__.r(__webpack_exports__);
     InputTag: vue_input_tag__WEBPACK_IMPORTED_MODULE_2___default.a
   },
   props: {
+    base_url: {
+      type: Object,
+      required: true
+    },
     variants: {
       type: Array,
       required: true
@@ -2038,16 +2044,40 @@ __webpack_require__.r(__webpack_exports__);
       }],
       product_variant_prices: [],
       dropzoneOptions: {
-        url: 'https://httpbin.org/post',
+        url: this.base_url.url + '/product-image-upload',
         thumbnailWidth: 150,
         maxFilesize: 0.5,
         headers: {
-          "My-Awesome-Header": "header value"
-        }
-      }
+          "X-CSRF-TOKEN": document.head.querySelector("[name=csrf-token]").content
+        },
+        acceptedFiles: ".png,.jpg,.jpeg,.gif,.PNG,.JPG,.JPEG,.GIF"
+      },
+      validation_errors: []
     };
   },
   methods: {
+    removeDropZoneAllFiles: function removeDropZoneAllFiles() {
+      this.$refs.VueDropZoneRef.removeAllFiles();
+    },
+    vdropzone_complete: function vdropzone_complete(response) {
+      if (response && response.xhr.response) {
+        this.images.push(response.xhr.response);
+      }
+    },
+    vdropzone_removed_file: function vdropzone_removed_file(a, b, c) {
+      var image_name = '';
+
+      if (a.xhr) {
+        image_name = a.xhr.response;
+      } else if (a.name) {
+        image_name = a.name;
+      }
+
+      if (image_name) {
+        var index = this.images.indexOf(image_name);
+        this.images.splice(index, 1);
+      }
+    },
     // it will push a new object into product variant
     newVariant: function newVariant() {
       var all_variants = this.variants.map(function (el) {
@@ -2098,8 +2128,32 @@ __webpack_require__.r(__webpack_exports__);
       }, []);
       return ans;
     },
+    ProductInputs: function ProductInputs($t) {
+      var _this2 = this;
+
+      var args = [['title', 'product_name', ''], ['sku', 'product_sku', ''], ['description', 'description', ''], ['product_image', 'images', []], ['product_variant', 'product_variant', [{
+        option: this.variants[0].id,
+        tags: []
+      }]], ['product_variant_prices', 'product_variant_prices', []]];
+      var data = {};
+      args.forEach(function (r) {
+        data[r[0]] = $t == 'get' ? _this2[r[1]] : r[2];
+
+        if ($t == 'reset') {
+          _this2[r[1]] = r[2];
+        }
+      });
+      return data;
+    },
     // store product into database
     saveProduct: function saveProduct() {
+      var _this3 = this;
+
+      this.validation_errors = []; //console.log(this.ProductInputs('get'));
+      //console.log(this.ProductInputs('reset'));
+      //console.log(this.ProductInputs('get'));            
+      //this.removeDropZoneAllFiles();
+
       var product = {
         title: this.product_name,
         sku: this.product_sku,
@@ -2108,16 +2162,22 @@ __webpack_require__.r(__webpack_exports__);
         product_variant: this.product_variant,
         product_variant_prices: this.product_variant_prices
       };
-      axios.post('/product', product).then(function (response) {
-        console.log(response.data);
+      axios.post(this.base_url.url + '/product', this.ProductInputs('get')).then(function (response) {
+        if (response.data == 1) {
+          alert('Success');
+
+          _this3.removeDropZoneAllFiles();
+
+          _this3.ProductInputs('reset');
+        } else {
+          alert('Fail');
+        }
       })["catch"](function (error) {
-        console.log(error);
+        _this3.validation_errors = error.response.data.errors;
       });
-      console.log(product);
     }
   },
-  mounted: function mounted() {
-    console.log('Component mounted.');
+  mounted: function mounted() {//console.log('Component mounted.')
   }
 });
 
@@ -50500,7 +50560,13 @@ var render = function() {
                     _vm.product_name = $event.target.value
                   }
                 }
-              })
+              }),
+              _vm._v(" "),
+              _vm.validation_errors.title
+                ? _c("p", { class: ["text-danger"] }, [
+                    _vm._v(_vm._s(_vm.validation_errors.title[0]))
+                  ])
+                : _vm._e()
             ]),
             _vm._v(" "),
             _c("div", { staticClass: "form-group" }, [
@@ -50526,7 +50592,13 @@ var render = function() {
                     _vm.product_sku = $event.target.value
                   }
                 }
-              })
+              }),
+              _vm._v(" "),
+              _vm.validation_errors.sku
+                ? _c("p", { class: ["text-danger"] }, [
+                    _vm._v(_vm._s(_vm.validation_errors.sku[0]))
+                  ])
+                : _vm._e()
             ]),
             _vm._v(" "),
             _c("div", { staticClass: "form-group" }, [
@@ -50565,8 +50637,12 @@ var render = function() {
             { staticClass: "card-body border" },
             [
               _c("vue-dropzone", {
-                ref: "myVueDropzone",
-                attrs: { id: "dropzone", options: _vm.dropzoneOptions }
+                ref: "VueDropZoneRef",
+                attrs: { id: "dropzone", options: _vm.dropzoneOptions },
+                on: {
+                  "vdropzone-complete": _vm.vdropzone_complete,
+                  "vdropzone-removed-file": _vm.vdropzone_removed_file
+                }
               })
             ],
             1
@@ -63300,8 +63376,8 @@ __webpack_require__.r(__webpack_exports__);
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(/*! /home/rifat/Programming/mediusware/interview/interview-question-sr/resources/js/app.js */"./resources/js/app.js");
-module.exports = __webpack_require__(/*! /home/rifat/Programming/mediusware/interview/interview-question-sr/resources/sass/app.scss */"./resources/sass/app.scss");
+__webpack_require__(/*! F:\xampp_7_4_33\htdocs\laravel\mediusware-interview-sr\resources\js\app.js */"./resources/js/app.js");
+module.exports = __webpack_require__(/*! F:\xampp_7_4_33\htdocs\laravel\mediusware-interview-sr\resources\sass\app.scss */"./resources/sass/app.scss");
 
 
 /***/ })

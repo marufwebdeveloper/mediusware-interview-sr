@@ -51,6 +51,69 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
+
+        function compress($s){
+            return str_replace([' '], [''], $s);
+        }
+        function variant_ids($svi,$val){
+            //svi = stored variant id
+            $ids = [];
+            $split = explode('/', $val);            
+            for($i=0;$i<3;$i++){
+                $ids[] = isset($split[$i])?($svi[compress($split[$i])]??NULL):NULL;
+            }
+            return $ids;
+        }
+
+        $validatedData = $request->validate([
+            'title' => 'required|max:255',
+            'sku' => 'required|unique:products'
+        ]);
+
+        DB::beginTransaction();
+
+        try{
+            $created_product = Product::create($request->all());
+            if($created_product->id){
+                $stored_variant_ids = [];            
+                foreach ($request->product_variant as $v) {
+                   foreach ($v['tags'] as $v2) {                    
+                        $stored_variant_id = DB::table('product_variants')->insertGetId([
+                            'variant' => $v2,
+                            'variant_id'=>$v['option'],
+                            'product_id'=>$created_product->id,
+                            'created_at'=>date('Y-m-d H:i:s')
+                        ]);
+                        $stored_variant_ids[compress($v2)]=$stored_variant_id;
+                   }
+                }
+                $storable_pvp_data = []; // pvp = product variant price
+                $storable_images = [];
+                foreach ($request->product_variant_prices as $v3) {
+                    $variant_ids = variant_ids($stored_variant_ids,$v3['title']);
+                    $storable_pvp_data[]= [
+                        'product_variant_one' =>$variant_ids[0],
+                        'product_variant_two' =>$variant_ids[1] ,
+                        'product_variant_three' => $variant_ids[2],
+                        'price' =>$v3['price'],
+                        'stock' => $v3['stock'],
+                        'product_id' =>$created_product->id,
+                        'created_at'=>date('Y-m-d H:i:s')
+                    ];              
+                }
+                foreach ($request->product_image as $v4) {
+                    $storable_images[]=[
+                        'product_id'=> $created_product->id,
+                        'file_path'=>$v4,
+                        'created_at'=>date('Y-m-d H:i:s')
+                    ];
+                }
+                DB::table('product_variant_prices')->insert($storable_pvp_data);
+                DB::table('product_images')->insert($storable_images);
+            }
+            DB::commit();
+            echo 1;
+        }catch(Exception $e){DB::rollback();}
         
     }
 
@@ -173,6 +236,15 @@ class ProductController extends Controller
         ->leftJoin('product_variants as pv3','pv3.id','pvp.product_variant_three')
         ->select('pv1.id as pv1id','pv1.variant as pv1n','pv2.id as pv2id','pv2.variant as pv2n','pv3.id as pv3id','pv3.variant as pv3n')        
         ->get();
+    }
+
+    public function ImageUpload(Request $request){
+        if($request->file('file')){
+            $imageName = floor(microtime(true) * 1000).'.'.$request->file->getClientOriginalExtension();
+            $request->file->move(public_path('product-images'), $imageName);             
+            //return response()->json(['success'=>'We have successfully upload file.']);
+            echo $imageName;
+        }
     }
 
     

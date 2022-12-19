@@ -7,10 +7,12 @@
                         <div class="form-group">
                             <label for="">Product Name</label>
                             <input type="text" v-model="product_name" placeholder="Product Name" class="form-control">
+                            <p v-if="validation_errors.title" :class="['text-danger']">{{ validation_errors.title[0] }}</p>
                         </div>
                         <div class="form-group">
                             <label for="">Product SKU</label>
                             <input type="text" v-model="product_sku" placeholder="Product Name" class="form-control">
+                            <p v-if="validation_errors.sku" :class="['text-danger']">{{ validation_errors.sku[0] }}</p>
                         </div>
                         <div class="form-group">
                             <label for="">Description</label>
@@ -24,7 +26,7 @@
                         <h6 class="m-0 font-weight-bold text-primary">Media</h6>
                     </div>
                     <div class="card-body border">
-                        <vue-dropzone ref="myVueDropzone" id="dropzone" :options="dropzoneOptions"></vue-dropzone>
+                        <vue-dropzone ref="VueDropZoneRef" id="dropzone" :options="dropzoneOptions"   @vdropzone-complete="vdropzone_complete" @vdropzone-removed-file="vdropzone_removed_file"></vue-dropzone>
                     </div>
                 </div>
             </div>
@@ -107,6 +109,10 @@ export default {
         InputTag
     },
     props: {
+        base_url:{
+            type: Object,
+            required: true
+        },
         variants: {
             type: Array,
             required: true
@@ -118,22 +124,44 @@ export default {
             product_sku: '',
             description: '',
             images: [],
-            product_variant: [
-                {
+            product_variant: [{
                     option: this.variants[0].id,
                     tags: []
-                }
-            ],
+            }],
             product_variant_prices: [],
             dropzoneOptions: {
-                url: 'https://httpbin.org/post',
+                url: this.base_url.url+'/product-image-upload',
                 thumbnailWidth: 150,
                 maxFilesize: 0.5,
-                headers: {"My-Awesome-Header": "header value"}
-            }
+                headers: {
+                    "X-CSRF-TOKEN": document.head.querySelector("[name=csrf-token]").content
+                },
+                acceptedFiles: ".png,.jpg,.jpeg,.gif,.PNG,.JPG,.JPEG,.GIF",
+            },
+            validation_errors:[]
         }
     },
     methods: {
+        removeDropZoneAllFiles(){
+            this.$refs.VueDropZoneRef.removeAllFiles();
+        },
+        vdropzone_complete(response) {
+            if(response && response.xhr.response){
+                this.images.push(response.xhr.response)
+            }
+        },
+        vdropzone_removed_file(a,b,c){
+            var image_name = '';
+            if(a.xhr){
+                image_name = a.xhr.response;
+            }else if(a.name){
+                image_name = a.name;
+            }
+            if(image_name){
+                var index = this.images.indexOf(image_name);
+                this.images.splice(index, 1);
+            }
+        },
         // it will push a new object into product variant
         newVariant() {
             let all_variants = this.variants.map(el => el.id)
@@ -176,9 +204,40 @@ export default {
             }, []);
             return ans;
         },
+        ProductInputs($t){
+            const args = [
+                ['title','product_name',''],
+                ['sku', 'product_sku',''],
+                ['description','description',''],
+                ['product_image','images',[]],
+                ['product_variant','product_variant',[{
+                    option: this.variants[0].id,
+                    tags: []
+                }]],
+                ['product_variant_prices','product_variant_prices',[]]
+            ];
+            const data = {};
+            args.forEach((r)=>{
+                data[r[0]] = ($t=='get')?this[r[1]]:r[2];
+                if($t=='reset'){
+                     this[r[1]]=r[2];
+                }
+            });
+            return data;
+        },
 
         // store product into database
         saveProduct() {
+            this.validation_errors=[];
+
+
+            //console.log(this.ProductInputs('get'));
+            //console.log(this.ProductInputs('reset'));
+            //console.log(this.ProductInputs('get'));            
+            //this.removeDropZoneAllFiles();
+            
+
+
             let product = {
                 title: this.product_name,
                 sku: this.product_sku,
@@ -187,21 +246,21 @@ export default {
                 product_variant: this.product_variant,
                 product_variant_prices: this.product_variant_prices
             }
-
-
-            axios.post('/product', product).then(response => {
-                console.log(response.data);
+            axios.post(this.base_url.url+'/product', this.ProductInputs('get')).then(response => {
+                if(response.data==1){
+                    alert('Success');
+                    this.removeDropZoneAllFiles();
+                    this.ProductInputs('reset');
+                }else{
+                    alert('Fail');
+                }
             }).catch(error => {
-                console.log(error);
-            })
-
-            console.log(product);
+                this.validation_errors = error.response.data.errors;
+            });
         }
-
-
     },
     mounted() {
-        console.log('Component mounted.')
+        //console.log('Component mounted.')
     }
 }
 </script>
