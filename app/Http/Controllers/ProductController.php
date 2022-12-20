@@ -182,7 +182,7 @@ class ProductController extends Controller
                     $subqueries = [];
                     foreach ($data['variant'] as $vt) {
                         $split = explode('||', $vt);
-                        $subqueries[] = "(SELECT product_id FROM product_variants WHERE variant_id=$split[0] AND variant='$split[1]')";
+                        $subqueries[] = "(SELECT product_id FROM product_variants WHERE variant_id=$split[0] AND LOWER(REPLACE(variant,' ',''))='$split[1]')";
                     }
                     if($subqueries)                    
                         $query->whereRaw("product_id IN (".implode(" INTERSECT ", $subqueries).")");
