@@ -1,4 +1,4 @@
-![REQUIRED .ENV PROPERTIES](https://github.com/marufwebdeveloper/mediusware-interview-sr/tree/dev-1.0.0/REQUIRED-PROPERTIES.png)
+![REQUIRED .ENV PROPERTIES](https://raw.githubusercontent.com/marufwebdeveloper/mediusware-interview-sr/dev-1.0.0/REQUIRED-PROPERTIES.png)
 
 <p align="center"><img src="https://res.cloudinary.com/dtfbvvkyp/image/upload/v1566331377/laravel-logolockup-cmyk-red.svg" width="400"></p>
 
