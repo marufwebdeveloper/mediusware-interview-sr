@@ -1,11 +1,9 @@
 @extends('layouts.app')
 
 @section('content')
-
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">Products</h1>
-    </div>    
-
+    </div>  
     <div class="card">
         <form action="{{route('product.index')}}" method="get" class="card-header">
 
@@ -14,14 +12,18 @@
                     <input type="text" name="title" value="{{$inputs['title']??''}}" placeholder="Product Title" class="form-control">
                 </div>
                 <div class="col-md-2">
-                    <select name="variant" id="" class="form-control">
-                        <option value="">Select Please</option>
-                        @foreach($variants as $variant)
-
-                        <option 
-                        value="{{ $vd=implode('-',[$variant->pv1id,$variant->pv2id,$variant->pv3id])}}"  {{ ($inputs['variant']??'')==$vd?'selected':'' }}
-                        >{{ implode('/',array_filter([$variant->pv1n,$variant->pv2n,$variant->pv3n]))}}</option>
-                        @endforeach
+                    <select multiple="" class="form-control" name="variant[]">
+                    @foreach($hierarchy_variants as $vi)
+                        <optgroup label="{{$vi['parent'][1]}}">
+                            @foreach(array_unique(array_map( "strtolower", $vi['data'] )) as $_variant)
+                                @php
+                                    $vv = $vi['parent'][0].'||'.strtolower(str_replace(' ','',$_variant));
+                                @endphp
+                                <option value="{{$vv}}" {{in_array($vv,($inputs['variant']??[]))?"selected":''}}>{{$_variant}}
+                                </option>
+                            @endforeach
+                        </optgroup>
+                    @endforeach
                     </select>
                 </div>
 
@@ -38,7 +40,9 @@
                     <input type="date" name="date" value="{{$inputs['date']??''}}" placeholder="Date" class="form-control">
                 </div>
                 <div class="col-md-1">
-                    <button type="submit" class="btn btn-primary float-right"><i class="fa fa-search"></i></button>
+
+                    <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i></button>
+                    <a href="{{route('product.index')}}" class="btn btn-success" title="Reset">R</a>
                 </div>
             </div>
         </form>

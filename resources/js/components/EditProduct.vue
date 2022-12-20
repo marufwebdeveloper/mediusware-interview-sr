@@ -26,7 +26,15 @@
                         <h6 class="m-0 font-weight-bold text-primary">Media</h6>
                     </div>
                     <div class="card-body border">
-                        <vue-dropzone ref="VueDropZoneRef" id="dropzone" :options="dropzoneOptions"   @vdropzone-complete="vdropzone_complete" @vdropzone-removed-file="vdropzone_removed_file"></vue-dropzone>
+                        <vue-dropzone 
+                            ref="VueDropZoneRef" 
+                            id="dropzone" 
+                            :options="dropzoneOptions"
+                            @vdropzone-complete="vdropzone_complete"
+                            @vdropzone-removed-file="vdropzone_removed_file"
+                            @vdropzone-mounted='vdropzone_mounted'
+                        ></vue-dropzone>
+                        <!--v-on:vdropzone-success="upload_success"-->
                     </div>
                 </div>
             </div>
@@ -51,11 +59,17 @@
                             </div>
                             <div class="col-md-8">
                                 <div class="form-group">
-                                    <label v-if="product_variant.length != 1" @click="product_variant.splice(index,1); checkVariant"
-                                           class="float-right text-primary"
-                                           style="cursor: pointer;">Remove</label>
+                                    <label 
+                                        v-if="product_variant.length!=1" @click="removeVariant(index)"
+                                        class="float-right text-primary"
+                                        style="cursor: pointer;"
+                                    >Remove</label>
                                     <label v-else for="">.</label>
-                                    <input-tag v-model="item.tags" @input="checkVariant" class="form-control"></input-tag>
+                                    <input-tag 
+                                        v-model="item.tags" @input="checkVariant"
+                                        class="form-control"
+                                    >
+                                    </input-tag>
                                 </div>
                             </div>
                         </div>
@@ -109,14 +123,31 @@ export default {
         InputTag
     },
     props: {
-        base_url:{
+        urls:{
             type: Object,
             required: true
+        },
+        product_data:{
+            type: Object,
+            required:true
         },
         variants: {
             type: Array,
             required: true
+        },
+        product_images:{
+            type: Array,
+            required:true
+        },
+        product_variants:{
+            type: Array,
+            required:true
+        },
+        pdt_variant_prices:{
+            type: Array,
+            required:true
         }
+        
     },
     data() {
         return {
@@ -130,7 +161,7 @@ export default {
             }],
             product_variant_prices: [],
             dropzoneOptions: {
-                url: this.base_url.url+'/product-image-upload',
+                url: this.urls.base_url+'/product-image-upload',
                 thumbnailWidth: 150,
                 maxFilesize: 0.5,
                 headers: {
@@ -139,17 +170,39 @@ export default {
                 acceptedFiles: ".png,.jpg,.jpeg,.gif,.PNG,.JPG,.JPEG,.GIF",
                 addRemoveLinks: true
             },
-            validation_errors:[]
+            validation_errors:[],
+            twvps:{} // title wise variant price stock
         }
     },
     methods: {
+        upload_success(file) { 
+            //console.log('A file was successfully uploaded')
+        },
+        vdropzone_mounted(){
+            var imgs = this.productImages();
+            for(var i=0;i<imgs.length;i++){
+                this.$refs.VueDropZoneRef.manuallyAddFile(
+                    { 
+                        size: 150,
+                        name: imgs[i],
+                        //type: "image/png" 
+                    }, 
+                    this.urls.asset_url+"product-images/"+imgs[i]
+                );
+            }
+        },
         removeDropZoneAllFiles(){
             this.$refs.VueDropZoneRef.removeAllFiles();
         },
         vdropzone_complete(response) {
-            if(response && response.xhr.response){
-                this.images.push(response.xhr.response)
-            }
+            var img = response.name||'';
+            try{
+                if(response && response.xhr.response){
+                    //this.images.push(response.xhr.response)
+                    img = response.xhr.response;
+                }
+            }catch(e){}
+            this.images.push(img);
         },
         vdropzone_removed_file(a,b,c){
             var image_name = '';
@@ -168,6 +221,7 @@ export default {
             let all_variants = this.variants.map(el => el.id)
             let selected_variants = this.product_variant.map(el => el.option);
             let available_variants = all_variants.filter(entry1 => !selected_variants.some(entry2 => entry1 == entry2));
+
             this.product_variant.push({
                 option: available_variants[0],
                 tags: []
@@ -179,17 +233,24 @@ export default {
             let tags = [];
             this.product_variant_prices = [];
             this.product_variant.filter((item) => {
+                if(item.tags.length)
                 tags.push(item.tags);
-            })
-
+            });
+            const twvps = this.twvps;
             this.getCombn(tags).forEach(item => {
+                var info = twvps[item.replace(/\s/g,'')]||[0,0];
                 this.product_variant_prices.push({
                     title: item,
-                    price: 0,
-                    stock: 0
+                    price: info[0],
+                    stock: info[1]
                 })
-            })
+            });
         },
+        removeVariant(index) {
+            this.product_variant.splice(index,1); 
+            this.checkVariant();
+        },
+ 
 
         // combination algorithm
         getCombn(arr, pre) {
@@ -225,32 +286,91 @@ export default {
             return data;
         },
 
-        // store product into database
+        // change product info into database
         saveProduct() {
             this.validation_errors=[];
-            let product = {
-                title: this.product_name,
-                sku: this.product_sku,
-                description: this.description,
-                product_image: this.images,
-                product_variant: this.product_variant,
-                product_variant_prices: this.product_variant_prices
-            }
-            axios.post(this.base_url.url+'/product', this.ProductInputs('get')).then(response => {
+            axios.put(
+                this.urls.base_url+'/product/'+this.product_data.id, 
+                this.ProductInputs('get')
+            )
+            .then(response => {
                 if(response.data==1){
                     alert('Success');
                     this.removeDropZoneAllFiles();
                     this.ProductInputs('reset');
+                    window.location.href = this.urls.base_url+'/product';
                 }else{
                     alert('Fail');
-                }
+                }                
             }).catch(error => {
                 this.validation_errors = error.response.data.errors;
             });
+        },
+        productImages(){
+            var images = [];
+            for(var i=0;i<this.product_images.length;i++){
+                images.push(this.product_images[i]['file_path'])
+            }
+            return images;
+        },
+        variantIdTitle(){
+            const data = {};
+            this.product_variants.forEach((r)=>{ 
+                data[r.id] = r.variant;
+            });
+            return data;
         }
     },
     mounted() {
-        //console.log('Component mounted.')
+        this.product_name = this.product_data.title;
+        this.product_sku = this.product_data.sku;
+        this.description = this.product_data.description;
+        //this.images = this.productImages();
+        const vit = this.variantIdTitle();
+        this.pdt_variant_prices.forEach((r)=>{
+            this.product_variant_prices.push({
+                title:(function(){
+                    const p=(s)=>{ return s?s+'/':''; }
+                    return  `${p(vit[r['product_variant_one']])}${p(vit[r['product_variant_two']])}${p(vit[r['product_variant_three']])}`;
+                }()),
+                price:r.price,
+                stock:r.stock
+            });
+        });
+        this.product_variant =(function(pv){
+            const data = [];
+            const g = pv.reduce(function(d,r){
+                if(d[r.variant_id]){
+                    d[r.variant_id].push(r.variant);
+                }else{
+                    d[r.variant_id]=[r.variant];
+                }
+                return d;
+            },{});  
+            Object.keys(g).forEach((k)=>{
+                data.push({
+                    option:k,
+                    tags:g[k]
+                });
+            });
+            return Array.isArray(data)?data:[];
+        }(this.product_variants)) ;
+
+        this.twvps =(function(pvp){
+            const data = {};
+            pvp.forEach((r)=>{
+                var title = (function(){
+                    const p=(s)=>{ return s?s+'/':''; }
+                    return  (`
+                        ${p(vit[r['product_variant_one']])}
+                        ${p(vit[r['product_variant_two']])}
+                        ${p(vit[r['product_variant_three']])}
+                    `).replace(/\s/g,'');
+                }());
+                data[`${title}`] = [r.price,r.stock];
+            });
+            return data;
+        }(this.pdt_variant_prices)) ;        
     }
 }
 </script>
