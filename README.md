@@ -1,5 +1,5 @@
 ## REQUIRED .ENV PROPERTIES
-##### Set your project url
+### Set your project url
 ![REQUIRED .ENV PROPERTIES](https://raw.githubusercontent.com/marufwebdeveloper/mediusware-interview-sr/dev-1.0.0/REQUIRED-PROPERTIES.png)
 
 <p align="center"><img src="https://res.cloudinary.com/dtfbvvkyp/image/upload/v1566331377/laravel-logolockup-cmyk-red.svg" width="400"></p>
